@@ -20,17 +20,25 @@
 #include <SPI.h>
 
 #include <time.h>
+#if DHT_ENABLED
+#include <DHT.h>
+#endif
 
 // ============ KONFIGURASI ============
+
+// DHT11 Sensor (set ke false untuk disable)
+#define DHT_ENABLED false
+#define DHT_PIN   4   // D4 (GPIO2)
+#define DHT_TYPE  DHT11
 
 // WiFi
 const char* ssid     = "Live Stream";
 const char* password = "";  // tanpa password
 
-// Pin NodeMCU
-#define DIN_PIN  13  // D7
-#define CS_PIN   15  // D8
-#define CLK_PIN  14  // D5
+// Pin NodeMCU (D5/D6/D7)
+#define DIN_PIN  14  // D5 (GPIO14)
+#define CS_PIN   12  // D6 (GPIO12)
+#define CLK_PIN  13  // D7 (GPIO13)
 
 // LED Matrix
 #define MAX_DEVICES 8
@@ -41,7 +49,26 @@ const long gmtOffset = 25200;   // 7 jam x 3600 detik
 const int  dstOffset = 0;
 
 // Brightness (0-15)
-#define BRIGHTNESS 5
+#define BRIGHTNESS 2
+
+// Welcome & Motivasi (detik)
+#define WELCOME_DUR  3   // durasi tampilan selamat datang
+#define MOTIVASI_DUR 4   // durasi tampilan kata motivasi
+
+// Kata motivasi (Indonesia)
+const char* motivasi[] = {
+  "Semangat pagi!",
+  "Tetap belajar, tetap hebat!",
+  "Hari ini lebih baik dari kemarin",
+  "Usaha kecil, hasil besar",
+  "Jangan menyerah!",
+  "Kamu bisa, pasti bisa!",
+  "Fokus pada tujuanmu",
+  "Waktu adalah emas",
+  "Belajar dari kemarin, hidup untuk hari ini",
+  "Teruslah mencoba!"
+};
+const int JUMLAH_MOTIVASI = sizeof(motivasi) / sizeof(motivasi[0]);
 
 // Nama bulan Indonesia
 const char* namaBulan[] = {"JAN","FEB","MAR","APR","MEI","JUN","JUL","AGU","SEP","OKT","NOV","DES"};
@@ -49,6 +76,16 @@ const char* namaBulan[] = {"JAN","FEB","MAR","APR","MEI","JUN","JUL","AGU","SEP"
 // ============ OBJEK ============
 
 MD_Parola display = MD_Parola(HARDWARE_TYPE, DIN_PIN, CLK_PIN, CS_PIN, MAX_DEVICES);
+#if DHT_ENABLED
+DHT dht(DHT_PIN, DHT_TYPE);
+#endif
+
+// Forward declarations
+void tampilkanWaktu();
+void tampilkanTanggal();
+#if DHT_ENABLED
+void tampilkanSensor();
+#endif
 
 // ============ VARIABEL ============
 
@@ -73,6 +110,11 @@ void setup() {
 
   // Tombol FLASH sebagai input
   pinMode(BTN_PIN, INPUT_PULLUP);
+
+#if DHT_ENABLED
+  // Inisialisasi DHT11
+  dht.begin();
+#endif
 
   // Inisialisasi display
   display.begin();
@@ -134,6 +176,28 @@ void setup() {
   }
 
   display.displayClear();
+
+  // === SELAMAT DATANG ===
+  Serial.println("Menampilkan pesan selamat datang...");
+  display.displayText("SELAMAT DATANG", PA_CENTER, 70, WELCOME_DUR * 1000, PA_SCROLL_LEFT, PA_MESH);
+  while (!display.displayAnimate()) { yield(); }
+  delay(300);
+
+  // === MOTIVASI RANDOM ===
+  randomSeed(millis());
+  int idx = random(JUMLAH_MOTIVASI);
+  Serial.printf("Motivasi: %s\n", motivasi[idx]);
+
+  char motivBuf[80];
+  sprintf(motivBuf, "  %s  ", motivasi[idx]);
+  display.displayText((const char*)motivBuf, PA_LEFT, 50, 0, PA_SCROLL_LEFT, PA_SCROLL_LEFT);
+  unsigned long motivStart = millis();
+  while (!display.displayAnimate()) {
+    yield();
+    if (millis() - motivStart > MOTIVASI_DUR * 1000) break;
+  }
+
+  display.displayClear();
   Serial.println("=== Jam Digital siap! ===\n");
 }
 
@@ -142,29 +206,34 @@ void setup() {
 void loop() {
   unsigned long currentMillis = millis();
 
-  // Cek tombol FLASH ditekan → tampilkan IP 5 detik
-  if (digitalRead(BTN_PIN) == LOW) {
+  // Cek tombol FLASH ditekan → scroll IP 5 detik
+  if (digitalRead(BTN_PIN) == LOW && !showIP) {
     showIP = true;
     ipShowTime = currentMillis;
 
     if (WiFi.status() == WL_CONNECTED) {
-      sprintf(displayBuf, "IP:%s", WiFi.localIP().toString().c_str());
+      String ipStr = WiFi.localIP().toString();
+      sprintf(displayBuf, "IP: %s  ", ipStr.c_str());
     } else {
-      sprintf(displayBuf, "NO WIFI");
+      sprintf(displayBuf, "NO WIFI  ");
     }
-    display.displayText(displayBuf, PA_CENTER, 0, 0, PA_PRINT, PA_NO_EFFECT);
+
+    // Scroll dari kanan ke kiri
+    display.displayText((const char*)displayBuf, PA_LEFT, 50, 0, PA_SCROLL_LEFT, PA_SCROLL_LEFT);
+    Serial.println("Tombol ditekan! Scroll IP...");
+  }
+
+  // Jalankan animasi scroll saat showIP aktif
+  if (showIP) {
     display.displayAnimate();
-    Serial.printf("Tombol ditekan! IP: %s\n", WiFi.localIP().toString().c_str());
-  }
 
-  // Kembali ke tampilan normal setelah 5 detik
-  if (showIP && (currentMillis - ipShowTime >= ipShowDuration)) {
-    showIP = false;
-    display.displayClear();
+    // Kembali ke tampilan normal setelah 5 detik
+    if (currentMillis - ipShowTime >= ipShowDuration) {
+      showIP = false;
+      display.displayClear();
+    }
+    return;
   }
-
-  // Jika sedang tampilkan IP, skip update waktu
-  if (showIP) return;
 
   if (currentMillis - prevMillis >= interval) {
     prevMillis = currentMillis;
@@ -183,8 +252,13 @@ void loop() {
       if (jam >= 24)   { jam = 0; }
     }
 
-    // Tampilkan tanggal setiap 10 detik (detik 50-59)
+    // Tampilkan: jam (0-39), tanggal (40-49), sensor (50-59)
+#if DHT_ENABLED
     if (detik >= 50 && detik <= 59) {
+      tampilkanSensor();
+    } else
+#endif
+    if (detik >= 40 && detik <= 49) {
       tampilkanTanggal();
     } else {
       tampilkanWaktu();
@@ -192,10 +266,21 @@ void loop() {
 
     // Serial output dengan IP
     String ipStr = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : "-";
+#if DHT_ENABLED
+    float suhu = dht.readTemperature();
+    float humi = dht.readHumidity();
+    Serial.printf("Waktu: %02d:%02d:%02d | WiFi: %s | IP: %s | %.1fC %d%%\n",
+                  jam, menit, detik,
+                  WiFi.status() == WL_CONNECTED ? "OK" : "OFF",
+                  ipStr.c_str(),
+                  isnan(suhu) ? 0.0 : suhu,
+                  isnan(humi) ? 0 : (int)humi);
+#else
     Serial.printf("Waktu: %02d:%02d:%02d | WiFi: %s | IP: %s\n",
                   jam, menit, detik,
                   WiFi.status() == WL_CONNECTED ? "OK" : "OFF",
                   ipStr.c_str());
+#endif
   }
 }
 
@@ -207,7 +292,7 @@ void tampilkanWaktu() {
   } else {
     sprintf(displayBuf, "%02d %02d", jam, menit);
   }
-  display.displayText(displayBuf, PA_CENTER, 0, 0, PA_PRINT, PA_NO_EFFECT);
+  display.displayText((const char*)displayBuf, PA_CENTER, 0, 0, PA_PRINT, PA_NO_EFFECT);
   display.displayAnimate();
 }
 
@@ -220,6 +305,26 @@ void tampilkanTanggal() {
   } else {
     sprintf(displayBuf, "-- --- ----");
   }
-  display.displayText(displayBuf, PA_CENTER, 0, 0, PA_PRINT, PA_NO_EFFECT);
+  display.displayText((const char*)displayBuf, PA_CENTER, 0, 0, PA_PRINT, PA_NO_EFFECT);
   display.displayAnimate();
 }
+
+// ============ TAMPILKAN SUHU & KELEMBABAN ============
+
+#if DHT_ENABLED
+void tampilkanSensor() {
+  float suhu = dht.readTemperature();
+  float humi = dht.readHumidity();
+
+  Serial.printf("DHT RAW -> suhu: %.2f  humi: %.2f  isnan_suhu: %d  isnan_humi: %d\n",
+                suhu, humi, isnan(suhu), isnan(humi));
+
+  if (isnan(suhu) || isnan(humi) || (suhu == 0 && humi == 0)) {
+    sprintf(displayBuf, "SENSOR ERR");
+  } else {
+    sprintf(displayBuf, "%.1fC %d%%", suhu, (int)humi);
+  }
+  display.displayText((const char*)displayBuf, PA_CENTER, 0, 0, PA_PRINT, PA_NO_EFFECT);
+  display.displayAnimate();
+}
+#endif
