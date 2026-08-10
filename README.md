@@ -12,19 +12,19 @@ Jam digital berbasis **NodeMCU ESP8266** dengan **8x MAX7219 LED Matrix 8x8** (d
 - **Scroll IP address** via tombol FLASH (tahan 5 detik)
 - **Pesan selamat datang** saat boot dengan scrolling text
 - **Kata motivasi random** tampil setelah welcome screen
-- **DHT11 sensor** (opsional) untuk suhu & kelembaban *(disabled by default)*
+- **DHT11 sensor** (opsional) untuk suhu & kelembaban _(disabled by default)_
 - **Serial Monitor** — info waktu, WiFi, IP, dan sensor setiap detik
 
 ---
 
 ## 🔧 Komponen
 
-| Komponen | Jumlah | Keterangan |
-|----------|--------|------------|
-| NodeMCU ESP8266 | 1 | Board utama |
-| MAX7219 LED Matrix 8x8 | 8 | Dua set 4 module, daisy chain |
-| DHT11 Sensor | 1 | Opsional (suhu & kelembaban) |
-| Kabel jumper | - | Sesuai kebutuhan |
+| Komponen               | Jumlah | Keterangan                    |
+| ---------------------- | ------ | ----------------------------- |
+| NodeMCU ESP8266        | 1      | Board utama                   |
+| MAX7219 LED Matrix 8x8 | 8      | Dua set 4 module, daisy chain |
+| DHT11 Sensor           | 1      | Opsional (suhu & kelembaban)  |
+| Kabel jumper           | -      | Sesuai kebutuhan              |
 
 ---
 
@@ -32,27 +32,27 @@ Jam digital berbasis **NodeMCU ESP8266** dengan **8x MAX7219 LED Matrix 8x8** (d
 
 ### LED Matrix (MAX7219)
 
-| MAX7219 | NodeMCU | GPIO |
-|---------|---------|------|
-| DIN | D5 | GPIO14 |
-| CS | D6 | GPIO12 |
-| CLK | D7 | GPIO13 |
-| VCC | 5V | — |
-| GND | GND | — |
+| MAX7219 | NodeMCU | GPIO   |
+| ------- | ------- | ------ |
+| DIN     | D5      | GPIO14 |
+| CS      | D6      | GPIO12 |
+| CLK     | D7      | GPIO13 |
+| VCC     | 5V      | —      |
+| GND     | GND     | —      |
 
-### DHT11 Sensor *(opsional)*
+### DHT11 Sensor _(opsional)_
 
-| DHT11 | NodeMCU | GPIO |
-|-------|---------|------|
-| VCC | 3.3V | — |
-| DATA | D4 | GPIO2 |
-| GND | GND | — |
+| DHT11 | NodeMCU | GPIO  |
+| ----- | ------- | ----- |
+| VCC   | 3.3V    | —     |
+| DATA  | D4      | GPIO2 |
+| GND   | GND     | —     |
 
 ### Tombol FLASH
 
-| Tombol | NodeMCU | GPIO |
-|--------|---------|------|
-| FLASH (built-in) | D3 | GPIO0 |
+| Tombol           | NodeMCU | GPIO  |
+| ---------------- | ------- | ----- |
+| FLASH (built-in) | D3      | GPIO0 |
 
 > Tombol FLASH bawaan NodeMCU, tidak perlu wiring tambahan.
 
@@ -64,7 +64,7 @@ Install via **Arduino IDE → Tools → Manage Libraries**:
 
 1. **MD_Parola** (by majicdesigns)
 2. **MD_MAX72xx** (by majicdesigns)
-3. **DHT sensor library** (by Adafruit) — *opsional, hanya jika DHT enabled*
+3. **DHT sensor library** (by Adafruit) — _opsional, hanya jika DHT enabled_
 
 > Library `ESP8266WiFi`, `SPI`, dan `time.h` sudah built-in di board ESP8266.
 
@@ -105,11 +105,11 @@ const long gmtOffset = 25200;           // 7 jam x 3600 detik
 
 ## 📺 Tampilan LED Matrix
 
-| Detik | Tampilan |
-|-------|----------|
-| 0 - 39 | Jam (`HH.MM`) dengan kedip |
-| 40 - 49 | Tanggal (`8 AGU 2026`) |
-| 50 - 59 | Suhu & Kelembaban *(jika DHT enabled)* |
+| Detik   | Tampilan                               |
+| ------- | -------------------------------------- |
+| 0 - 39  | Jam (`HH.MM`) dengan kedip             |
+| 40 - 49 | Tanggal (`8 AGU 2026`)                 |
+| 50 - 59 | Suhu & Kelembaban _(jika DHT enabled)_ |
 
 > Tekan **tombol FLASH** kapan saja untuk melihat IP address (scrolling, 5 detik).
 
